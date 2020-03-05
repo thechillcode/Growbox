@@ -1,0 +1,48 @@
+sudo service apache2 restart
+sudo service apache2 stop
+sudo service apache2 start
+
+
+sudo htpasswd -c /etc/apache2/.htpasswd growbox
+#You will be asked to supply and confirm a password for the user. (greenthumb)
+#Leave out the -c argument for any additional users you wish to add:
+sudo htpasswd /etc/apache2/.htpasswd another_user
+#If we view the contents of the file, we can see the username and the encrypted password for each record:
+cat /etc/apache2/.htpasswd
+
+sudo nano /etc/apache2/sites-enabled/000-default.conf
+
+<VirtualHost>
+
+	...
+	
+	DocumentRoot /var/www/growbox/
+	
+	...
+	
+	<Directory /var/www/growbox>
+		AuthType Basic
+		AuthName "Restricted Content"
+		AuthUserFile /etc/apache2/.htpasswd
+		Require valid-user
+		Options Indexes FollowSymLinks MultiViews
+		AllowOverride None
+		DirectoryIndex growbox.php
+		Order allow,deny
+		allow from all
+	</Directory>
+
+	# For Development
+	<Directory /var/www>
+		AuthType Basic
+		AuthName "Restricted Content"
+		AuthUserFile /etc/apache2/.htpasswd
+		Require valid-user
+		Options Indexes FollowSymLinks MultiViews
+		AllowOverride None
+		DirectoryIndex index.html
+		Order allow,deny
+		allow from all
+	</Directory>
+
+</VirtualHost>
