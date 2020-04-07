@@ -42,7 +42,9 @@ sudo nano /etc/apache2/sites-enabled/000-default.conf
 
 * Note:
 Default User/Password as in .htpasswd:
-growbox/greenthumb
+pi/raspberry
+change user:
+sudo htpasswd -c /etc/apache2/.htpasswd <username>
 
 4. Setup tmp Folder for Images
 
