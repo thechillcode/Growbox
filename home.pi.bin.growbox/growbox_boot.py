@@ -3,29 +3,19 @@
 # Growbox Boot
 ################################################
 
-import config
-
-import sqlite3
-
 import growbox
 
 ################################################	
 # Connect To SQL Server
 ################################################
-connection = sqlite3.connect(config.DB)
-cursor = connection.cursor()
+growbox_db = growbox.db()
+growbox_db.connect()
 
-# Reset IsPumping
-cursor.execute("UPDATE Sockets SET IsPumping=0 WHERE IsPumping=1")
-connection.commit()
+# Run Handler ASAP
+growbox_db.set_config("RunHandler", 1)
 
 # Sockets
-connection.row_factory = sqlite3.Row
-cursor = connection.cursor()
-
-cursor.execute('SELECT rowid,* FROM Sockets')
-sockets = cursor.fetchall()
-#num_rows = len(sockets)
+sockets = growbox_db.get_sockets()
 for row in sockets:
 	# Reset GPIO
 	gpio = row['GPIO']
@@ -35,4 +25,4 @@ for row in sockets:
 ################################################
 # SQL Close
 ################################################
-connection.close()
+growbox_db.disconnect()

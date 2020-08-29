@@ -12,14 +12,14 @@ $nav = array(
 		array("Home", "growbox.php"),
 		array("PowerMeter", "powermeter.php"),
 		);
-$title = "Power (W) - " . date('Y-m-d H:i:s');
+$title = "Power (W): " . date('Y-m-d H:i:s');
 $label = 'Power (W)';
 
 // days
-$d = 3;
+$d = 7;
 if (isset($_GET['d']))
 {
-	$d = in_range(intval($_GET['d']), 1, 28, 3);
+	$d = in_range(intval($_GET['d']), 1, 28, 7);
 }
 
 $db = new SQLite3('/home/pi/DB/Growbox.db', SQLITE3_OPEN_READONLY);
@@ -29,7 +29,16 @@ $num_sockets = 8;
 $sockets = $db->query('SELECT rowid,active,name FROM Sockets');
 
 // last entry
-$loads = $db->query('SELECT * FROM PowerMeter WHERE datetime(dt) > datetime(\'now\',\'-' . ($d) . ' days\') ORDER BY dt ASC');
+$loads = $db->query("SELECT *, strftime('%Y-%m-%d', datetime(dt, 'localtime')), strftime('%H:%M', datetime(dt, 'localtime')),".
+					" case cast(strftime('%w',datetime(dt, 'localtime')) as integer)".
+					" when 0 then 'Sun'".
+					" when 1 then 'Mon'".
+					" when 2 then 'Tue'".
+					" when 3 then 'Wed'".
+					" when 4 then 'Thu'".
+					" when 5 then 'Fri'".
+					" when 6 then 'Sat' end".
+					" FROM PowerMeter WHERE datetime(dt, 'localtime') > datetime(\"now\",\"-" . ($d) . " days\") ORDER BY dt ASC");
 
 $totalp = 0;
 
@@ -46,19 +55,14 @@ $colors = array("rgb(231, 76, 60)", "rgb(69, 179, 157)", "rgb(241, 196, 15)", "r
 
 $colors = array(
 	"#FF6666",
+	"#0000A0",
 	"#FFB266",
-	"#B2FF66",
-	"#66B2FF",
-	"#B266FF",
-	"#C0C0C0",
-	"#FFFF66",
-	"#66FF66",
-	"#66FFFF",
-	"#6666FF",
-	"#FF66FF",
-
-	"#66FFB2",
-	"#FF66B2");
+	"#008000",
+	"#800080",
+	"#808080",
+	"#EBEB00",
+	"#ADD8E6"
+	);
 ?>
 
 <html lang="en">
@@ -86,13 +90,15 @@ $colors = array(
 <form action="<?php $_PHP_SELF ?>" method="get">
 	<select name="d" onchange="this.form.submit()">
 		<?php 
-			$days = array(1,3,7,21,28);
-			foreach ($days as &$num) {
-				if ($num == $d) { echo "<option value=\"$num\" selected>"; }
-				else { echo "<option value=\"$num\">"; }
-				echo "$num days</option>";
-			} 
-		?>
+			$days = array(1,3,7,14,28);
+			$dayslabel = array('1 day','3 days','1 week','2 weeks','4 weeks');
+
+			for ($i=0; $i<count($days); $i++) {
+				$num = $days[$i];
+				$dlabel = $dayslabel[$i]; ?>
+				
+				<option value="<?= $num ?>" <?php if ($num == $d) { echo "selected"; } ?>><?= $dlabel ?></option>
+			<?php } ?>
 	</select>
 </form>
 <br>
@@ -107,7 +113,8 @@ new Chart(document.getElementById('chart1').getContext('2d'), {
 			<?php
 				while ($l = $loads->fetchArray(SQLITE3_NUM))
 				{
-					echo "\"$l[0]\",";
+					//echo "\"$l[0]\",";
+					echo "[\"" . $l[$num_sockets+3] ." ". $l[$num_sockets+1] ."\",\"".$l[$num_sockets+2]."\"],";
 				}
 			?>
 		],

@@ -2,8 +2,13 @@
 
 echo "### Installing Directories & Files ###"
 
+##############################
+# Install WWW
 # /var/www/growbox
+##############################
+
 echo "-> /var/www/growbox"
+
 sudo rm -r /var/www/growbox
 sudo mkdir /var/www/growbox
 
@@ -15,12 +20,17 @@ sudo mkdir /var/www/growbox/cam
 
 sudo mkdir /var/www/growbox/archive
 
-# copy files
-cd www
-cp -vr ./ /var/www/growbox
-cd ..
+cd var.www.growbox
 
-rm /var/www/growbox/\[var-www-growbox\].txt
+# configure Apache
+mv -f etc.apache2.htpasswd /etc/apache2/.htpasswd_growbox
+rm etc.apache2.htpasswd_growbox
+mv -f etc.apache2.sites-enabled.000-default.conf /etc/apache2/sites-enabled/000-default.conf
+rm etc.apache2.sites-enabled.000-default.conf
+
+cp -vr ./ /var/www/growbox
+
+cd ..
 
 # apply rights
 
@@ -43,12 +53,14 @@ sudo chmod u+rxw,g+rwx,o-rwx /var/www/growbox/cam
 sudo chown -R pi:www-data /var/www/growbox/archive
 sudo chmod u+rxw,g+rwx,o-rwx /var/www/growbox/archive
 
-mv -f /var/www/growbox/.htpasswd /etc/apache2/.htpasswd
-mv -f /var/www/growbox/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+
+##############################
+# Install python growbox
+# /home/pi/bin/growbox
+##############################
 
 echo "-> /home/pi/bin/growbox"
 
-# /home/pi/bin/growbox
 sudo mkdir /home/pi/bin
 sudo chown -R pi:pi /home/pi/bin
 sudo chmod u+rxw,g+rx-w,o-rwx /home/pi/bin
@@ -57,17 +69,20 @@ sudo chmod g+s /home/pi/bin
 sudo rm -r /home/pi/bin/growbox
 sudo mkdir /home/pi/bin/growbox
 
-cd bin
+cd home.pi.bin.growbox
 cp -vr ./ /home/pi/bin/growbox
 cd ..
-
-rm /home/pi/bin/growbox/\[home-pi-bin-growbox\].txt
 
 # apply rights
 sudo chown -R pi:pi /home/pi/bin/growbox
 sudo chmod u+rxw,g+rx-w,o-rwx /home/pi/bin/growbox
 sudo chmod g+s /home/pi/bin/growbox
 
+
+##############################
+# Install Sqlite3 Database
+# /home/pi/DB
+##############################
 
 echo "-> /home/pi/DB"
 
@@ -78,14 +93,14 @@ sudo rm /home/pi/DB/Growbox.db
 sudo sqlite3 -init ./growbox_tables.sql /home/pi/DB/Growbox.db .quit
 
 # Give www-data write access to DB/Growbox.db
-sudo chown -R pi:www-data /home/pi/DB/
+sudo chown -R pi:www-data /home/pi/DB
 sudo chmod g+rwx,o-rwx /home/pi/DB
 sudo chmod g+rw,o-rwx /home/pi/DB/Growbox.db
 
-# HTML access for user pi
-# Only for Debug purposes
-# https://www.raspberrypi.org/forums/viewtopic.php?t=155067
+# etc/default/cron set to utc
+sudo cp etc.default.cron /etc/default/cron
+
+# run setup.py - crontab & fstab
+sudo python setup.py
 
 echo "### Installing Directories & Files - DONE ###"
-
-

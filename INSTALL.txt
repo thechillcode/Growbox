@@ -1,0 +1,99 @@
+
+-------------------------------------------------------
+-- Install Growbox
+-------------------------------------------------------
+
+*******************************************************
+Install NOOBS on RaspberryPi, preferably the light version without Desktop
+Post Installation, connect USB or RaspberryPI Camera or both
+Connect DHT22 Humidity Sensors, Connect a standard Relay
+
+Humidity Sensor:
+	Setup is aimed at only one humidity sensor
+	Multiple sensors can be connected but only the first has any functionality
+*******************************************************
+
+------------
+Enable SSH
+open:
+sudo raspi-config
+Scroll to interfaces and enable SSH
+Perform reboot
+------------
+
+------------
+Enable Camera
+open:
+	sudo raspi-config
+Scroll to interfaces and enable Camera
+Perform reboot
+------------
+
+------------
+Raspberry Pi Disable Bluetooth (optional)
+open:
+	sudo nano /boot/config.txt
+edit/add:
+	dtoverlay=disable-bt
+------------
+
+
+******************************************************
+* 1. Copy files (e.g. into /home/pi/Install/Growbox) *
+******************************************************
+
+
+*********************************************
+* 2. Execute (from installation directory): *
+*********************************************
+
+sudo ./install_software.sh
+sudo ./install_files.sh
+
+	
+********************
+* 3. Setup Apache: *
+* Note:
+* Default User/Password as in /etc/apache2/.htpasswd_growbox:
+*	pi/raspberry
+* Change the username and password:
+*	sudo htpasswd -c /etc/apache2/.htpasswd_growbox <username>
+* You will be asked to provide a password
+********************
+
+sudo service apache2 restart
+
+
+********************************
+* CHECK Apache Password/Config *
+********************************
+
+sudo nano /etc/apache2/.htpasswd_growbox
+sudo nano /etc/apache2/sites-enabled/000-default.conf
+
+
+********************
+* CHECK /etc/fstab *
+********************
+
+sudo nano /etc/fstab
+
+---------------------
+# growbox
+tmpfs /var/www/growbox/tmp tmpfs defaults,nofail,noatime,nosuid,uid=1000,gid=33,mode=0755,size=10m 0 0
+---------------------
+
+sudo mount -a
+
+
+*****************
+* CHECK CRONTAB *
+*****************
+
+sudo crontab -l
+
+---------------------
+5 0 * * * sudo reboot # growbox_reboot
+@reboot python /home/pi/bin/growbox/growbox_boot.py >> /var/log/growbox.log 2>&1 # growbox_boot
+* * * * * python /home/pi/bin/growbox/growbox_run_handler.py >> /var/log/growbox.log 2>&1 # growbox_run
+---------------------

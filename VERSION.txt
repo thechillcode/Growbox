@@ -1,8 +1,6 @@
 Author: Michael Lutz (mvlutz@gmx.net)
-Date: 2020-03-05
-Version: 1.x
 
 Changelog:
 
-Version 1.x
+Version 1.0 - 2020-08-29 (Using Load Cells)
 	- init

@@ -16,7 +16,6 @@ if (isset($_GET['id']))
 {
 	$id = in_range(intval($_GET['id']), 1, 4, 1);
 }
-$cam = $db->querySingle('SELECT enabled,usb FROM Cameras WHERE rowid='.$id, true);
 
 // entries
 $images = $db->query('SELECT filename FROM Images WHERE id='.$id.' ORDER BY rowid DESC');

@@ -2,6 +2,10 @@
 
 echo "### Installing Software ###"
 
+# Postfix for Cronjob Error reporting
+# Setup Local, post: system
+#sudo apt-get install postfix
+
 # Update RPI
 sudo apt-get update
 sudo apt-get upgrade -y
@@ -16,9 +20,8 @@ sudo apt-get install php libapache2-mod-php php-sqlite3 php-zip -y
 
 # Python
 sudo apt-get install build-essential python-dev python-openssl git -y
-sudo apt-get install python-setuptools -y
-sudo apt-get install python-pip -y
-sudo pip install picamera
+sudo apt-get install python-picamera -y
+sudo pip install python-crontab
 
 # Adafruit Library, DHT22
 cd /tmp

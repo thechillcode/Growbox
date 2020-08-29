@@ -16,7 +16,6 @@ if (isset($_GET['id']))
 {
 	$id = in_range(intval($_GET['id']), 1, 4, 1);
 }
-$cam = $db->querySingle('SELECT enabled,usb FROM Cameras WHERE rowid='.$id, true);
 
 // entries
 $images = $db->query('SELECT filename FROM Images WHERE id='.$id.' ORDER BY dt DESC');
@@ -51,11 +50,11 @@ $images = $db->query('SELECT filename FROM Images WHERE id='.$id.' ORDER BY dt D
 <div class="block">
 	<div class="w3-content w3-display-container">
 
-		<img class="mySlides" src="tmp/image-<?php echo $id.'-'.$cam['usb'];?>.jpg" style="width:100%">
+		<img class="mySlides" src="tmp/image-<?php echo $id;?>.jpg" width="100%" height="auto">
 	<?php
 		while($img = $images->fetchArray(SQLITE3_NUM))
 		{
-			echo "\t\t<img class='mySlides' src='cam/$img[0]' style='width:100%'>\n";
+			echo "\t\t<img class='mySlides' src='cam/$img[0]' width='100%' height='auto'>\n";
 		}
 		$db->close();
 	?>

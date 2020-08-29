@@ -1,5 +1,0 @@
-Destination:
-/var/www/growbox
-
-Default User/Password:
-growbox/greenthumb

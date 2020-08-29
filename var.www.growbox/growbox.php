@@ -3,6 +3,29 @@
 <!-- database query -->
 <?php
 
+// UTC Offset in hours
+$dt_now = new DateTime("now");
+$utc_offset = intval($dt_now->getOffset() / 3600);
+
+function calc_offset($hour, $offset) {
+	$hour = $hour + $offset;
+	if ($hour < 0) {
+		$hour += 24;
+	}
+	if ($hour > 23) {
+		$hour %= 24;
+	}
+	return $hour;
+}
+function get_local_hour($utc_hour) {
+	global $utc_offset;
+	return calc_offset($utc_hour, $utc_offset);
+}
+function get_utc_hour($local_hour) {
+	global $utc_offset;
+	return calc_offset($local_hour, -($utc_offset));
+}
+
 $db_mode = SQLITE3_OPEN_READONLY;
 if (isset($_REQUEST['id'])) {
 	$db_mode = SQLITE3_OPEN_READWRITE;
@@ -25,7 +48,7 @@ while ($result = $airsensors_db->fetchArray(SQLITE3_ASSOC))
 {
 	if ($result['gpio'] > 0) {
 		$data = array("-", 0.0, 0.0);
-		$query = $db->query('SELECT dt,temperature,humidity FROM AirSensorData WHERE id=' . $result['rowid'] . ' ORDER BY dt DESC LIMIT 1');
+		$query = $db->query('SELECT strftime("%Y-%m-%d %H:%M", datetime(dt, "localtime")), temperature,humidity FROM AirSensorData WHERE id=' . $result['rowid'] . ' ORDER BY dt DESC LIMIT 1');
 		$data = $query->fetchArray();
 		$airsensors[] = array($result['rowid'], $result['name'], $data[0], $data[1], $data[2]);
 	}
@@ -38,7 +61,7 @@ while ($result = $weightsensors_db->fetchArray(SQLITE3_ASSOC))
 {
 	if (($result['data'] > 0) && ($result['clk'] > 0)) {
 		$data = array("-", 0);
-		$query = $db->query('SELECT dt,weight FROM WeightSensorData WHERE id=' . $result['rowid'] . ' ORDER BY dt DESC LIMIT 1');
+		$query = $db->query('SELECT strftime("%Y-%m-%d %H:%M", datetime(dt, "localtime")), weight FROM WeightSensorData WHERE id=' . $result['rowid'] . ' ORDER BY dt DESC LIMIT 1');
 		$data = $query->fetchArray();
 		$weightsensors[] = array($result['rowid'], $result['name'], $data[0], $data[1]);
 	}
@@ -59,6 +82,7 @@ function in_range($number, $min, $max, $default)
     return ($number >= $min && $number <= $max) ? $number : $default;
 }
 
+$RunHandler = 0;
 // Lamp
 if (isset($_REQUEST['id']))
 {
@@ -73,54 +97,87 @@ if (isset($_REQUEST['id']))
 	}
 
 	if (isset($_REQUEST['hon']) && isset($_REQUEST['hoff'])) {
-		$hon = in_range(intval($_REQUEST['hon']), 0, 23, 0);
-		$hoff = in_range(intval($_REQUEST['hoff']), 0, 23, 0);
+		$hon = get_utc_hour(in_range(intval($_REQUEST['hon']), 0, 23, 0));
+		$hoff = get_utc_hour(in_range(intval($_REQUEST['hoff']), 0, 23, 0));
 		$db->exec('UPDATE Sockets SET HOn=' . $hon . ', HOff='. $hoff .' WHERE rowid='. $rowid);
 		if ($rowid == $grwconfig['Light']) {
 			$query = $db->exec('UPDATE Config SET val=' . $hon . ' WHERE name="LightOn"');
 			$query = $db->exec("UPDATE Config SET val=" . $hoff . " WHERE name='LightOff'");
 		}
+		$RunHandler = 1;
 	}
 	
 	if (isset($_REQUEST['power']) && isset($_REQUEST['pause'])) {
 		$power = in_range(intval($_REQUEST['power']), 0, 300, 0);
 		$pause = in_range(intval($_REQUEST['pause']), 0, 300, 0);
 		$db->exec('UPDATE Sockets SET Power=' . $power . ', PowerCnt='. $power .', Pause='. $pause .' WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 	
 	if (isset($_REQUEST['tmax'])) {
 		$tmax = in_range(intval($_REQUEST['tmax']), 0, 50, 0);
 		$db->exec('UPDATE Sockets SET TMax=' . $tmax . ' WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 	
 	if (isset($_REQUEST['tmin'])) {
 		$tmin = in_range(intval($_REQUEST['tmin']), 0, 50, 0);
 		$db->exec('UPDATE Sockets SET TMin=' . $tmin . ' WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 
 	if (isset($_REQUEST['hmax'])) {
 		$hmax = in_range(intval($_REQUEST['hmax']), 0, 100, 0);
 		$db->exec('UPDATE Sockets SET HMax=' . $hmax . ' WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 
 	if (isset($_REQUEST['hmin'])) {
 		$hmin = in_range(intval($_REQUEST['hmin']), 0, 100, 0);
 		$db->exec('UPDATE Sockets SET HMin=' . $hmin . ' WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 	
 	if (isset($_REQUEST['thpower'])) {
 		$thpower = in_range(intval($_REQUEST['thpower']), 0, 300, 0);
 		$db->exec('UPDATE Sockets SET THPower=' . $thpower . ', THPowerCnt=0 WHERE rowid='. $rowid);
+		$RunHandler = 1;
 	}
 	
 	if (isset($_REQUEST['days']) && isset($_REQUEST['time']) && isset($_REQUEST['ml'])) {
-		$days = in_range(intval($_REQUEST['days']), -1, 5, 0);
-		$time = in_range(intval($_REQUEST['time']), 0, 23, 0);
+		$days = in_range(intval($_REQUEST['days']), 0, 5, 0);
+		$time = in_range(intval($_REQUEST['time']), -2, 23, -1);
+		if ($time >= 0) {
+			$time = get_utc_hour($time);
+		}
 		$ml = in_range(intval($_REQUEST['ml']), 0, 3000, 0);
 		$dayscnt = $days;
 		if ($days == -1) { $dayscnt = 0; }
 		$db->exec('UPDATE Sockets SET DaysCnt=' . $dayscnt . ', Days=' . $days . ', Time='. $time .', MilliLiters='. $ml .' WHERE rowid='. $rowid);
+		if ($time == -2) {
+			$RunHandler = 1;
+		}
 	}
+	
+	if (isset($_REQUEST['minweight']) && isset($_REQUEST['time']) && isset($_REQUEST['ml'])) {
+		$minweight = in_range(intval($_REQUEST['minweight']), 0, 15000, 0);
+		$time = in_range(intval($_REQUEST['time']), -2, 23, -1);
+		if ($time >= 0) {
+			$time = get_utc_hour($time);
+		}
+		$ml = in_range(intval($_REQUEST['ml']), 0, 3000, 0);
+		$db->exec('UPDATE Sockets SET MinWeight=' . $minweight . ', Time='. $time .', MilliLiters='. $ml .' WHERE rowid='. $rowid);
+		if ($time == -2) {
+			$RunHandler = 1;
+		}
+	}
+
+	if ($RunHandler == 1) {
+		$db->exec("UPDATE Config SET val=".$RunHandler." WHERE name='RunHandler'");
+	}
+	header( "Location: ". $_SERVER['PHP_SELF'] ."" );
+	exit ;
+
 }
 
 ?>
@@ -143,7 +200,7 @@ if (isset($_REQUEST['id']))
 		array("Home", "growbox.php"),
 		);
 		
-	$title = "Growbox - Info - " . date('Y-m-d H:i:s');
+	$title = "Growbox: " . date('Y-m-d H:i:s');
 ?>
 
 <?php include 'header.php';?>
@@ -156,7 +213,7 @@ if (isset($_REQUEST['id']))
 	<div class="tile">
 		<table style="float: left">
 			<tr>
-				<th>Air:</th>
+				<th>Location:</th>
 				<th>H(%):</th>
 				<th>T(&deg;C):</th> 
 				<th>Date:</th>
@@ -216,10 +273,9 @@ if (isset($_REQUEST['id']))
 <div class="block">
 	<?php for ($i=0; $i<count($cameras); $i++) {
 		$id = $cameras[$i][0];
-		$usb = $cameras[$i][1];
 	?>
 	<div class="tile">
-		<a href="cam.php?id=<?php echo $id?>"><img src="tmp/image-<?php echo $id.'-'.$usb?>.jpg" alt="Current" width="100%" height="auto"></a>
+		<a href="cam.php?id=<?php echo $id?>"><img src="tmp/image-<?php echo $id;?>.jpg" alt="Current" width="100%" height="auto"></a>
 	</div>
 	<?php } ?>
 </div>
@@ -282,8 +338,8 @@ $sockets_db = $db->query('SELECT rowid,* FROM Sockets');
 				<!-- Timer -->
 				<!-------------------------------------------->
 				
-				<?php	$hon = $socket['HOn'];
-						$hoff = $socket['HOff'];
+				<?php	$hon = get_local_hour($socket['HOn']);
+						$hoff = get_local_hour($socket['HOff']);
 						if ($socket['Timer'] == 1) { ?>
 
 					<div class="tile">
@@ -293,7 +349,7 @@ $sockets_db = $db->query('SELECT rowid,* FROM Sockets');
 								for ($x = 0; $x < 24; $x++) {
 									if ($x == $hon) { echo "<option value=\"$x\" selected>"; }
 									else { echo "<option value=\"$x\">"; }
-									echo sprintf("%.02d", $x) . ":00</option>";
+									echo sprintf("%'.02d", $x) . ":00</option>";
 								} 
 							?>
 						</select>
@@ -479,9 +535,17 @@ $sockets_db = $db->query('SELECT rowid,* FROM Sockets');
 				
 				<?php	$days = $socket['Days'];
 						$time = $socket['Time'];
+						if (($socket["IsPumping"] == 1) && ($time == -2)) {
+							$time = -1;
+						}
+						if ($time >= 0) {
+							$time = get_local_hour($time);
+						}
 						$ml = $socket['MilliLiters'];
 						$flowrate = $socket['FlowRate'];
 						$daycnt = $socket["DaysCnt"];
+						$wsensorid = $socket["WSensorID"];
+						$minweight = $socket["MinWeight"];
 						if ($socket['Pump'] == 1) {
 							$steps = array(100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
 								1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000);
@@ -489,44 +553,54 @@ $sockets_db = $db->query('SELECT rowid,* FROM Sockets');
 
 							$date_now = new DateTime("now");
 							$p_date = "";
-							if ($days == -1) {
+							if ($time == -2) {
 								$h = $date_now->format('H');
 								$min = $date_now->format('i');
-								$min = ((intval($min/10) + 1) * 10) % 60;
+								$min = ($min + 1) % 60;
 								if ($min == 0) {
 									$h += 1;
 									$h %= 24;
 								}									
 								$p_date = $date_now->format('Y-m-d ').sprintf( '%02d:', $h).sprintf( '%02d', $min);
 							}
-							if ($days > 0) {
+							else if (($days > 0) && ($wsensorid == 0) && ($time > -1)) {
 								$date_now->add(new DateInterval("P".$daycnt."D"));
 								$p_date = $date_now->format('Y-m-d').' '.sprintf( '%02d', $time).':00';
 							}
+							$interval = array(0, 1, 2, 3, 4, 5);
+							$int_label = array("-", "1 d", "2 d", "3 d", "4 d", "5 d");
 
-							$interval = array(-1, 0, 1, 2, 3, 4, 5);
-							$int_label = array("Now", "-", "1 d", "2 d", "3 d", "4 d", "5 d");
-						?>
+				?>
 
-					<div class="tile">
-						<b>Interval:</b><br><br>
-						<select name="days" onchange="this.form.submit()">
-						<?php 
-							for ($x = 0; $x < count($interval); $x++) {
-								$val = $interval[$x];
-								$label = $int_label[$x];
-								echo "<option value=\"$val\"";
-								if ($val == $days) { echo " selected"; }
-								echo ">$label</option>";
-							}
-						?>
-						</select>
-					</div>
+					<?php if ($wsensorid != 0) { ?>
+						<div class="tile">
+							<b>Min Weight:</b><br><br>
+							<input type="number" min="0" max="20000" step="100" onfocusout="this.form.submit()" name="minweight" value="<?php echo $minweight; ?>">&thinsp;g
+						</div>
+					<?php } else { ?>
+						<div class="tile">
+							<b>Interval:</b><br><br>
+							<select name="days" onchange="this.form.submit()">
+							<?php 
+								for ($x = 0; $x < count($interval); $x++) {
+									$val = $interval[$x];
+									$label = $int_label[$x];
+									echo "<option value=\"$val\"";
+									if ($val == $days) { echo " selected"; }
+									echo ">$label</option>";
+								}
+							?>
+							</select>
+						</div>
+					<?php } ?>
+
 					<div class="tile">
 						<b>Time:</b><br><br>
 						<select name="time" onchange="this.form.submit()">
+						<option value="<?php echo (($socket["IsPumping"] == 1) ? -1 : -2); ?>">Now</option>
+						<option value="-1" <?php if ($time == -1) { echo 'selected'; } ?>>-</option>
 						<?php 
-							for ($x = 0; $x <= 24; $x++) {
+							for ($x = 0; $x < 24; $x++) {
 								if ($x == $time) { echo "<option value=\"$x\" selected>"; }
 								else { echo "<option value=\"$x\">"; }
 								echo sprintf("%'.02d", $x) . ":00</option>";
@@ -548,9 +622,9 @@ $sockets_db = $db->query('SELECT rowid,* FROM Sockets');
 						</select>
 					</div>
 					
-					<?php if ($days != 0) { ?>
+					<?php if ($p_date != "") { ?>
 					<div class="tile">
-						<b>Date:</b><br><br>
+						<b>Scheduled:</b><br><br>
 						<?php echo $p_date; ?>
 					</div>
 					<?php } ?>

@@ -14,10 +14,10 @@ if (isset($_GET['id']))
 }
 
 // days
-$d = 21;
+$d = 14;
 if (isset($_GET['d']))
 {
-	$d = in_range(intval($_GET['d']), 1, 28, 3);
+	$d = in_range(intval($_GET['d']), 1, 28, 14);
 }
 
 // Connect DB
@@ -40,7 +40,7 @@ $nav = array(
 		array("Home", "growbox.php"),
 		array("Water", "water.php?id=".$id),
 		);
-$title = $name." - Water (ml) - " . date('Y-m-d H:i:s');
+$title = $name.": " . date('Y-m-d H:i:s');
 $label = 'Water (ml)';
 
 $totalml = 0;
@@ -49,12 +49,22 @@ $totalml = 0;
 
 // last entry
 //$waters = $db->query('SELECT dt,ml FROM Water WHERE datetime(dt) > datetime(\'now\',\'-' . ($d) . ' days\') ORDER BY rowid ASC');
-$waters = $db->query('SELECT dt,ml FROM Water WHERE id='. $id . ' AND datetime(dt) > datetime(\'now\',\'-' . ($d) . ' days\') ORDER BY dt ASC');
+$waters = $db->query("SELECT datetime(dt, 'localtime'),ml, strftime('%Y-%m-%d', datetime(dt, 'localtime')), strftime('%H:%M', datetime(dt, 'localtime')),".
+					" case cast(strftime('%w',datetime(dt, 'localtime')) as integer)".
+					" when 0 then 'Sun'".
+					" when 1 then 'Mon'".
+					" when 2 then 'Tue'".
+					" when 3 then 'Wed'".
+					" when 4 then 'Thu'".
+					" when 5 then 'Fri'".
+					" when 6 then 'Sat' end".
+					" FROM Water WHERE id=". $id . " AND datetime(dt, 'localtime') > datetime('now','-". ($d) . " days') ORDER BY dt ASC");
 
 $s_dates = "";
 $s_ml = "";
 while ($water = $waters->fetchArray(SQLITE3_NUM)) {
-	$s_dates = $s_dates . "\"$water[0]\",";
+	//$s_dates = $s_dates . "\"$water[0]\",";
+	$s_dates = $s_dates . "[\"$water[4] $water[2]\",\"$water[3]\"],";
 	$s_ml = $s_ml . $water[1] . ",";
 	
 	$totalml += $water[1];
@@ -92,13 +102,15 @@ while ($water = $waters->fetchArray(SQLITE3_NUM)) {
 	<input name="id" type="hidden" value="<?php echo $id; ?>">
 	<select name="d" onchange="this.form.submit()">
 		<?php 
-			$days = array(7,14,21,28);
-			foreach ($days as &$num) {
-				if ($num == $d) { echo "<option value=\"$num\" selected>"; }
-				else { echo "<option value=\"$num\">"; }
-				echo "$num days</option>";
-			} 
-		?>
+			$days = array(1,3,7,14,28);
+			$dayslabel = array('1 day','3 days','1 week','2 weeks','4 weeks');
+
+			for ($i=0; $i<count($days); $i++) {
+				$num = $days[$i];
+				$dlabel = $dayslabel[$i]; ?>
+				
+				<option value="<?= $num ?>" <?php if ($num == $d) { echo "selected"; } ?>><?= $dlabel ?></option>
+			<?php } ?>
 	</select>
 </form>
 </td>

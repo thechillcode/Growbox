@@ -11,22 +11,26 @@ function in_range($number, $min, $max, $default)
 }
 
 // days
-$d = 3;
+$d = 7;
 if (isset($_GET['d']))
 {
-	$d = in_range(intval($_GET['d']), 1, 28, 3);
+	$d = in_range(intval($_GET['d']), 1, 28, 7);
 }
 
 $sensor = "air";
 $lines = 2;
 $id = 1;
+$min_1 = 100000;
+$max_1 = -100000;
+$min_2 = 100000;
+$max_2 = -100000;
 
 $nav = array(
 		array("Home", "growbox.php"),
 		array("AirSensor", "sensor.php?sensor=air&id=1"),
 		);
 
-$title = "Humidity (%), Temperature (&deg;C) - " . date('Y-m-d H:i:s');
+$title = date('Y-m-d H:i:s');
 $label = 'Humidity (%)';
 $label2 = 'Temperature (°C)';
 //$color1 = 'rgb(75, 192, 192)';
@@ -59,15 +63,16 @@ if (isset($_GET['sensor']) && isset($_GET['id']))
 				);
 			// get name
 			$name = $db->querySingle('SELECT name FROM AirSensors WHERE rowid='. $id);
-			$title = $name . ": Humidity (%), Temperature (&deg;C) - " . date('Y-m-d H:i:s');
+			$title = $name . ": " . date('Y-m-d H:i:s');
 			$label = "Humidity (%)";
 			$label2 = "Temperature (°C)";
 			$page_title = "Growbox - Air Sensor - " . $name;
 
 			$db_table = "AirSensorData";
 			#$query = 'SELECT dt,humidity,temperature FROM ' . $db_table . ' WHERE id='.$id.' AND datetime(dt) > datetime(\'now\',\'-' . ($d) . ' days\') ORDER BY dt ASC';
-			$query = "SELECT dt,humidity,temperature,".
-				"case cast(strftime('%w',dt) as integer)".
+			#$query = "SELECT humidity, temperature, dt,".
+			$query = "SELECT humidity, temperature, strftime('%Y-%m-%d', datetime(dt, 'localtime')), strftime('%H:%M', datetime(dt, 'localtime')),".
+				"case cast(strftime('%w',datetime(dt, 'localtime')) as integer)".
 					" when 0 then 'Sun'".
 					" when 1 then 'Mon'".
 					" when 2 then 'Tue'".
@@ -75,7 +80,7 @@ if (isset($_GET['sensor']) && isset($_GET['id']))
 					" when 4 then 'Thu'".
 					" when 5 then 'Fri'".
 					" when 6 then 'Sat' end".
-					" FROM " . $db_table . " WHERE id=".$id." AND datetime(dt) > datetime('now','-" . ($d) . " days') ORDER BY dt ASC";					
+					" FROM " . $db_table . " WHERE id=".$id." AND datetime(dt, 'localtime') > datetime('now','-" . ($d) . " days') ORDER BY dt ASC";					
 			break;
 			
 		case "weight":
@@ -87,13 +92,13 @@ if (isset($_GET['sensor']) && isset($_GET['id']))
 				array("WeightSensor", "sensor.php?sensor=weight&id=" . $id),
 				);
 			$name = $db->querySingle('SELECT name FROM WeightSensors WHERE rowid='. $id);
-			$title = $name . ": Weight (g) - " . date('Y-m-d H:i:s');
+			$title = $name . ": " . date('Y-m-d H:i:s');
 			$label = "Weight (g)";
 			$page_title = "Growbox - Weight Sensor - " . $name;
 			$db_table = "WeightSensorData";
 			#$query = 'SELECT dt,weight FROM ' . $db_table . ' WHERE id='.$id.' AND datetime(dt) > datetime(\'now\',\'-' . ($d) . ' days\') ORDER BY dt ASC';
-			$query = "SELECT dt,weight,NULL,".
-				"case cast(strftime('%w',dt) as integer)".
+			$query = "SELECT weight, NULL, strftime('%Y-%m-%d', datetime(dt, 'localtime')), strftime('%H:%M', datetime(dt, 'localtime')),".
+				"case cast(strftime('%w',datetime(dt, 'localtime')) as integer)".
 					" when 0 then 'Sun'".
 					" when 1 then 'Mon'".
 					" when 2 then 'Tue'".
@@ -101,7 +106,7 @@ if (isset($_GET['sensor']) && isset($_GET['id']))
 					" when 4 then 'Thu'".
 					" when 5 then 'Fri'".
 					" when 6 then 'Sat' end".
-					" FROM " . $db_table . " WHERE id=".$id." AND datetime(dt) > datetime('now','-" . ($d) . " days') ORDER BY dt ASC";					
+					" FROM " . $db_table . " WHERE id=".$id." AND datetime(dt, 'localtime') > datetime('now','-" . ($d) . " days') ORDER BY dt ASC";					
 			break;
 	}
 }
@@ -139,12 +144,14 @@ $results = $db->query($query);
 		<?php 
 			$days = array(1,3,7,14,28);
 			$dayslabel = array('1 day','3 days','1 week','2 weeks','4 weeks');
+			echo $days[0], $dayslabel[0];
 			for ($i=0; $i<count($days); $i++) {
-				if ($days[$i] == $d) { echo "<option value=\"$days[$i]\" selected>"; }
-				else { echo "<option value=\"$days[$i]\">"; }
-				echo "$dayslabel[$i]</option>";
-			} 
-		?>
+				$num = $days[$i];
+				$dlabel = $dayslabel[$i];
+				?>
+				
+				<option value="<?= $num ?>" <?php if ($num == $d) { echo "selected"; } ?>><?= $dlabel ?></option>
+			<?php } ?>
 	</select>
 </form>
 <br>
@@ -157,9 +164,10 @@ $results = $db->query($query);
 		var lineChartData = {
 			labels: [
 			<?php
+				$i = 0;
 				while ($result = $results->fetchArray(SQLITE3_NUM))
 				{
-					echo "\"$result[3] $result[0]\",";
+					echo "[\"$result[4] $result[2]\",\"$result[3]\"],";
 				}
 			?>
 			],
@@ -174,7 +182,10 @@ $results = $db->query($query);
 						$i = 0; //a counter to track which element we are at
 						while ($result = $results->fetchArray(SQLITE3_NUM))
 						{
-							echo "$result[1],";
+							
+							if ($result[0] < $min_1) { $min_1 = $result[0]; }
+							if ($result[0] > $max_1) { $max_1 = $result[0]; }
+							echo "$result[0],";
 						}
 					?>
 					],
@@ -191,7 +202,9 @@ $results = $db->query($query);
 						$i = 0; //a counter to track which element we are at
 						while ($result = $results->fetchArray(SQLITE3_NUM))
 						{
-							echo "$result[2],";
+							if ($result[1] < $min_2) { $min_2 = $result[1]; }
+							if ($result[1] > $max_2) { $max_2 = $result[1]; }
+							echo "$result[1],";
 						}
 					?>
 					],
@@ -245,6 +258,53 @@ $results = $db->query($query);
 <?php
 	$db->close();
 ?>
+
+<hr>
+
+<div class="block">
+
+<?php if ($sensor == 'air') { ?>
+	<div class="tile">
+		<table>
+			<tr>
+				<th colspan="2">Humidity</th>
+			</tr>
+			<tr>
+				<td>Min:</td><td><?php echo $min_1; ?>&thinsp;%</td>
+			</tr>
+				<td>Max:</td><td><?php echo $max_1; ?>&thinsp;%</td>
+			</tr>
+		</table>
+	</div>
+	<div class="tile">
+		<table>
+			<tr>
+				<th colspan="2">Temperature</th>
+			</tr>
+			<tr>
+				<td>Min:</td><td><?php echo $min_2; ?>&thinsp;°C</td>
+			</tr>
+				<td>Max:</td><td><?php echo $max_2; ?>&thinsp;°C</td>
+			</tr>
+		</table>
+	</div>
+<?php } ?>
+<?php if ($sensor == 'weight') { ?>
+	<div class="tile">
+		<table>
+			<tr>
+				<th colspan="2">Weight</th>
+			</tr>
+			<tr>
+				<td>Min:</td><td><?php echo $min_1; ?>&thinsp;g</td>
+			</tr>
+				<td>Max:</td><td><?php echo $max_1; ?>&thinsp;g</td>
+			</tr>
+		</table>
+	</div>
+<?php } ?>
+
+</div>
 
 <hr>
 
